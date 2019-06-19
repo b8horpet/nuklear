@@ -25,10 +25,9 @@ NK_API void                 nk_sdl_font_stash_end(void);
 // NK_API void                 nk_sdl_copy(nk_handle, const char*, int len);
 
 // /* Image */
-// #ifdef NK_XLIB_INCLUDE_STB_IMAGE
-// NK_API struct nk_image nk_xsurf_load_image_from_file(char const *filename);
-// NK_API struct nk_image nk_xsurf_load_image_from_memory(const void *membuf, nk_uint membufSize);
-// #endif
+#ifdef NK_SDL_NATIVE_INCLUDE_STB_IMAGE
+NK_API struct nk_image nk_sdl_load_image_from_file(char const *filename);
+#endif
 
 #endif
 // /*
@@ -45,13 +44,10 @@ NK_API void                 nk_sdl_font_stash_end(void);
 // #include <time.h>
 
 
-// #ifdef NK_XLIB_IMPLEMENT_STB_IMAGE
-// #define STB_IMAGE_IMPLEMENTATION
-// #endif
-
-// #ifdef NK_XLIB_INCLUDE_STB_IMAGE
-// #include "../../example/stb_image.h"
-// #endif
+#ifdef NK_SDL_NATIVE_INCLUDE_STB_IMAGE
+#define STB_IMAGE_IMPLEMENTATION
+#include "../../example/stb_image.h"
+#endif
 
 static struct  {
     struct nk_context ctx;
@@ -310,7 +306,18 @@ nk_sdl_render(struct SDL_Renderer* renderer)
         } break;
         case NK_COMMAND_IMAGE: {
             const struct nk_command_image *i = (const struct nk_command_image *)cmd;
-//             nk_xsurf_draw_image(surf, i->x, i->y, i->w, i->h, i->img, i->col);
+            if(i->img.handle.id == 0) break;
+            SDL_Rect dest = {i->x,i->y,i->w,i->h};
+            SDL_Rect src, *src_ptr = NULL;
+            if(nk_image_is_subimage(&i->img))
+            {
+                src_ptr = &src;
+                src.x = i->img.region[0];
+                src.y = i->img.region[1];
+                src.w = i->img.region[2];
+                src.h = i->img.region[3];
+            }
+            SDL_RenderCopy(sdl.renderer,(struct SDL_Texture*) i->img.handle.ptr, src_ptr, &dest);
         } break;
         case NK_COMMAND_RECT_MULTI_COLOR:
         case NK_COMMAND_ARC:
@@ -335,15 +342,15 @@ NK_API void
 nk_sdl_font_stash_end(void)
 {
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
-const uint32_t rmask = 0xff000000;
-const uint32_t gmask = 0x00ff0000;
-const uint32_t bmask = 0x0000ff00;
-const uint32_t amask = 0x000000ff;
+    const uint32_t rmask = 0xff000000;
+    const uint32_t gmask = 0x00ff0000;
+    const uint32_t bmask = 0x0000ff00;
+    const uint32_t amask = 0x000000ff;
 #else
-const uint32_t rmask = 0x000000ff;
-const uint32_t gmask = 0x0000ff00;
-const uint32_t bmask = 0x00ff0000;
-const uint32_t amask = 0xff000000;
+    const uint32_t rmask = 0x000000ff;
+    const uint32_t gmask = 0x0000ff00;
+    const uint32_t bmask = 0x00ff0000;
+    const uint32_t amask = 0xff000000;
 #endif
     const void *image; int w, h;
     image = nk_font_atlas_bake(&sdl.atlas, &w, &h, NK_FONT_ATLAS_RGBA32);
@@ -358,4 +365,36 @@ const uint32_t amask = 0xff000000;
     if (sdl.atlas.default_font)
         nk_style_set_font(&sdl.ctx, &sdl.atlas.default_font->handle);
 }
+
+#ifdef NK_SDL_NATIVE_INCLUDE_STB_IMAGE
+NK_INTERN struct nk_image
+nk_stbi_image_to_sdl_native(unsigned char *data, int width, int height, int channels) {
+    if (data == NULL) return nk_image_id(0);
+    int errorcode;
+    long image_size_in_bytes = width*height*channels;
+    long pitch = width*channels;
+    struct SDL_Texture* texture = SDL_CreateTexture(sdl.renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, width, height);
+    if(!texture) return nk_image_id(0);
+    errorcode = SDL_UpdateTexture(texture, NULL, data, pitch);
+    if(errorcode)
+    {
+        SDL_DestroyTexture(texture);
+        return nk_image_id(0);
+    }
+    struct nk_image img = nk_image_ptr((void*)texture);
+    return img;
+}
+
+NK_API struct nk_image
+nk_sdl_load_image_from_file(char const *filename)
+{
+    int x,y,n;
+    unsigned char *data;
+    data = stbi_load(filename, &x, &y, &n, 4);
+    struct nk_image retval = nk_stbi_image_to_sdl_native(data, x, y, n);
+    stbi_image_free(data);
+    return retval;
+}
+#endif
+
 #endif
