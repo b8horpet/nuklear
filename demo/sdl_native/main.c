@@ -215,7 +215,7 @@ main(void)
         struct nk_color sdlbg = nk_rgba_f(bg.r, bg.g, bg.b, bg.a);
         SDL_SetRenderDrawColor(renderer, sdlbg.r, sdlbg.g, sdlbg.b, sdlbg.a);
         SDL_RenderClear(renderer);
-        nk_sdl_render(renderer);
+        nk_sdl_render();
         SDL_RenderPresent(renderer);
 
         /* Timing */

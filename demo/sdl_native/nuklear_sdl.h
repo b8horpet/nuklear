@@ -17,7 +17,7 @@ struct SDL_Renderer;
 union SDL_Event;
 NK_API struct nk_context*   nk_sdl_init(struct SDL_Window *, struct SDL_Renderer *);
 NK_API int                  nk_sdl_handle_event(union SDL_Event*);
-NK_API void                 nk_sdl_render(struct SDL_Renderer*);
+NK_API void                 nk_sdl_render(void);
 NK_API void                 nk_sdl_shutdown(void);
 NK_API void                 nk_sdl_font_stash_begin(struct nk_font_atlas **atlas);
 NK_API void                 nk_sdl_font_stash_end(void);
@@ -205,7 +205,7 @@ nk_sdl_shutdown(void)
 }
 
 NK_API void
-nk_sdl_render(struct SDL_Renderer* renderer)
+nk_sdl_render(void)
 {
     const struct nk_command *cmd;
     nk_foreach(cmd, &sdl.ctx)
